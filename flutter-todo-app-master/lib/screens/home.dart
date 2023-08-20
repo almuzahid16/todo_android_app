@@ -1,4 +1,8 @@
+import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_todo_app/model/todo_model.dart';
 
 import '../model/todo.dart';
 import '../constants/colors.dart';
@@ -16,10 +20,33 @@ class _HomeState extends State<Home> {
   List<ToDo> _foundToDo = [];
   final _todoController = TextEditingController();
 
+
+  // FirebaseFirestore firestore = FirebaseFirestore.instance;
+  CollectionReference todo = FirebaseFirestore.instance.collection('todo');
+  final Stream<QuerySnapshot> _usersStream = FirebaseFirestore.instance.collection('todo').snapshots();
+
+  Future<void> addTODO({required String taskTitle}) async {
+    TodoModelData modelData = TodoModelData(
+        id: DateTime.now().millisecondsSinceEpoch,
+        title: taskTitle,
+        isChecked: false);
+    return todo
+        .add(modelData.toJson())
+        .then((value) => print("User Added"))
+        .catchError((error) => print("Failed to add user: $error"));
+  }
+
   @override
   void initState() {
     _foundToDo = todosList;
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    super.dispose();
+    _todoController.dispose();
   }
 
   @override
@@ -30,22 +57,23 @@ class _HomeState extends State<Home> {
       body: Stack(
         children: [
           Container(
-            padding: EdgeInsets.symmetric(
+            padding: const EdgeInsets.symmetric(
               horizontal: 20,
-              vertical: 15,
+              vertical: 45,
             ),
             child: Column(
               children: [
                 searchBox(),
                 Expanded(
                   child: ListView(
+                    physics: const BouncingScrollPhysics(),
                     children: [
                       Container(
-                        margin: EdgeInsets.only(
+                        margin: const EdgeInsets.only(
                           top: 50,
                           bottom: 20,
                         ),
-                        child: Text(
+                        child: const Text(
                           'All ToDos',
                           style: TextStyle(
                             fontSize: 30,
@@ -53,12 +81,82 @@ class _HomeState extends State<Home> {
                           ),
                         ),
                       ),
-                      for (ToDo todoo in _foundToDo.reversed)
-                        ToDoItem(
-                          todo: todoo,
-                          onToDoChanged: _handleToDoChange,
-                          onDeleteItem: _deleteToDoItem,
-                        ),
+                      const Text("Completed Task",style: TextStyle(fontSize: 18,fontWeight: FontWeight.w400),),
+                      const SizedBox(height: 10,),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: _usersStream,
+                        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                          if (snapshot.hasError) {
+                            return const Text('Something went wrong');
+                          }
+
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Text("Loading");
+                          }
+
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: snapshot.data!.docs.length,
+                            itemBuilder: (context, index) {
+                              Map<String, dynamic> data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+                              TodoModelData modelData = TodoModelData.fromJson(data);
+                              return modelData.isChecked
+                              ? ToDoItem(
+                                todo: modelData,
+                                onToDoChanged: () async {
+                                  await snapshot.data!.docs[index].reference.update({
+                                    "isChecked": !modelData.isChecked,
+                                  });
+                                },
+                                onDeleteItem: () async{
+                                  await snapshot.data!.docs[index].reference.delete();
+                                },
+                              )
+                              : const SizedBox();
+                            },
+                          )
+                          ;
+                        },
+                      ),
+                      const Text("Uncompleted Task",style: TextStyle(fontSize: 18,fontWeight: FontWeight.w400),),
+                      const SizedBox(height: 10,),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: _usersStream,
+                        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                          if (snapshot.hasError) {
+                            return const Text('Something went wrong');
+                          }
+
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Text("Loading");
+                          }
+
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: snapshot.data!.docs.length,
+                            itemBuilder: (context, index) {
+                              Map<String, dynamic> data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+                              TodoModelData modelData = TodoModelData.fromJson(data);
+                              return !modelData.isChecked
+                              ? ToDoItem(
+                                todo: modelData,
+                                onToDoChanged: () async {
+                                  await snapshot.data!.docs[index].reference.update({
+                                    "isChecked": !modelData.isChecked,
+                                  });
+                                },
+                                onDeleteItem: () async{
+                                  await snapshot.data!.docs[index].reference.delete();
+                                },
+                              )
+                              : const SizedBox();
+                            },
+                          )
+                          ;
+                        },
+                      ),
                     ],
                   ),
                 )
@@ -70,12 +168,12 @@ class _HomeState extends State<Home> {
             child: Row(children: [
               Expanded(
                 child: Container(
-                  margin: EdgeInsets.only(
+                  margin: const EdgeInsets.only(
                     bottom: 20,
                     right: 20,
                     left: 20,
                   ),
-                  padding: EdgeInsets.symmetric(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 5,
                   ),
@@ -93,31 +191,32 @@ class _HomeState extends State<Home> {
                   ),
                   child: TextField(
                     controller: _todoController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                         hintText: 'Add a new todo item',
                         border: InputBorder.none),
                   ),
                 ),
               ),
               Container(
-                margin: EdgeInsets.only(
+                margin: const EdgeInsets.only(
                   bottom: 20,
                   right: 20,
                 ),
                 child: ElevatedButton(
-                  child: Text(
-                    '+',
-                    style: TextStyle(
-                      fontSize: 40,
-                    ),
-                  ),
-                  onPressed: () {
-                    _addToDoItem(_todoController.text);
+                  onPressed: () async {
+                    await addTODO(taskTitle: _todoController.text);
+                    _todoController.text = "";
                   },
                   style: ElevatedButton.styleFrom(
                     primary: tdBlue,
                     minimumSize: Size(60, 60),
                     elevation: 10,
+                  ),
+                  child: const Text(
+                    '+',
+                    style: TextStyle(
+                      fontSize: 40,
+                    ),
                   ),
                 ),
               ),
