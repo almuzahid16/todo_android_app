@@ -74,7 +74,7 @@ class _HomeState extends State<Home> {
                           bottom: 20,
                         ),
                         child: const Text(
-                          'All ToDos',
+                          'All To Do',
                           style: TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w500,

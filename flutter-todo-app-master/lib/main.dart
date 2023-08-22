@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'ToDo App',
+        title: 'Todo Android App',
         home: Home(),
       ),
     );
