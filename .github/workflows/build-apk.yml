@@ -30,15 +30,17 @@ jobs:
           channel: 'stable'
 
       - name: Install Dependencies
+        working-directory: ./flutter-todo-app-master
         run: flutter pub get
 
       - name: Build APK
+        working-directory: ./flutter-todo-app-master
         run: flutter build apk --release
 
       - name: Upload Release
         uses: softprops/action-gh-release@v1
         with:
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: flutter-todo-app-master/build/app/outputs/flutter-apk/app-release.apk
           tag_name: v1.0.0
           name: Release v1.0.0
           body: "Initial APK release for Flutter Todo App. Download and install on any Android device."
